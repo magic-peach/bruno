@@ -1,5 +1,10 @@
 import { collectionsSlice } from './index';
 
+jest.mock('utils/common', () => ({
+  ...jest.requireActual('utils/common'),
+  uuid: () => 'generated-uid'
+}));
+
 const {
   setRequestVars,
   setFolderVars,
@@ -11,7 +16,8 @@ const {
   clearSidebarSelection,
   setLastClickedSidebarUid,
   collapseItem,
-  expandItem
+  expandItem,
+  requestUrlChanged
 } = collectionsSlice.actions;
 const reducer = collectionsSlice.reducer;
 
@@ -249,5 +255,61 @@ describe('expandItem', () => {
     expect(expandedFolder.collapsed).toBe(false);
     expect(expandedFolder.items[0].collapsed).toBe(true);
     expect(expandedFolder.items[0].items[0].collapsed).toBe(true);
+  });
+});
+
+describe('requestUrlChanged', () => {
+  const makeRequestItem = (params) => ({
+    uid: 'req1',
+    type: 'http-request',
+    request: { url: 'http://x.com?a=1&b=2', params: [] },
+    draft: { uid: 'req1', type: 'http-request', request: { url: 'http://x.com?a=1&b=2', params } }
+  });
+
+  const changeUrl = (params, url) => {
+    const next = reducer(
+      makeStateWith(makeRequestItem(params)),
+      requestUrlChanged({ collectionUid: 'col1', itemUid: 'req1', url })
+    );
+    return next.collections[0].items[0].draft.request.params;
+  };
+
+  const existingParams = [
+    { uid: 'p1', name: 'a', value: '1', description: 'first param', annotations: [{ name: 'note' }], type: 'query', enabled: true },
+    { uid: 'p2', name: 'b', value: '2', description: 'second param', annotations: null, type: 'query', enabled: true }
+  ];
+
+  it('keeps description and annotations when a query param value is edited', () => {
+    const params = changeUrl(existingParams, 'http://x.com?a=12&b=2');
+
+    expect(params).toHaveLength(2);
+    expect(params[0]).toMatchObject({ uid: 'p1', name: 'a', value: '12', description: 'first param', annotations: [{ name: 'note' }] });
+    expect(params[1]).toMatchObject({ uid: 'p2', name: 'b', value: '2', description: 'second param' });
+  });
+
+  it('keeps description when the url path is edited', () => {
+    const params = changeUrl(existingParams, 'http://x.com/users?a=1&b=2');
+
+    expect(params[0]).toMatchObject({ uid: 'p1', description: 'first param' });
+    expect(params[1]).toMatchObject({ uid: 'p2', description: 'second param' });
+  });
+
+  it('does not hand a description to another param that only shares its value', () => {
+    const params = changeUrl(existingParams, 'http://x.com?c=2&b=2');
+
+    expect(params[0]).toMatchObject({ name: 'c', value: '2', description: '' });
+    expect(params[1]).toMatchObject({ uid: 'p2', name: 'b', value: '2', description: 'second param' });
+  });
+
+  it('still follows a renamed key when its value is unchanged', () => {
+    const params = changeUrl(existingParams, 'http://x.com?renamed=1&b=2');
+
+    expect(params[0]).toMatchObject({ uid: 'p1', name: 'renamed', description: 'first param' });
+  });
+
+  it('gives a newly typed query param an empty description', () => {
+    const params = changeUrl(existingParams, 'http://x.com?a=1&b=2&c=3');
+
+    expect(params[2]).toMatchObject({ uid: 'generated-uid', name: 'c', value: '3', description: '', annotations: null });
   });
 });

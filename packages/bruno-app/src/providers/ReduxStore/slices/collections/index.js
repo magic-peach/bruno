@@ -1177,19 +1177,31 @@ export const collectionsSlice = createSlice({
           let newPathParams = [];
 
           // try and connect as much as old params uid's as possible
-          each(urlQueryParams, (urlQueryParam) => {
-            const existingQueryParam = find(
-              enabledQueryParams,
-              (p) => p?.name === urlQueryParam?.name || p?.value === urlQueryParam?.value
-            );
+          // names are claimed first so a param that only shares a value cannot take over another param's row
+          const matchedQueryParams = urlQueryParams.map(() => null);
+          const claimExistingParams = (isMatch) => {
+            each(urlQueryParams, (urlQueryParam, index) => {
+              if (matchedQueryParams[index]) {
+                return;
+              }
+              const existingQueryParam = find(enabledQueryParams, (p) => isMatch(p, urlQueryParam));
+              if (existingQueryParam) {
+                matchedQueryParams[index] = existingQueryParam;
+                // once found, remove it - trying our best here to accommodate duplicate query params
+                enabledQueryParams = filter(enabledQueryParams, (p) => p?.uid !== existingQueryParam?.uid);
+              }
+            });
+          };
+          claimExistingParams((p, urlQueryParam) => p?.name === urlQueryParam?.name);
+          claimExistingParams((p, urlQueryParam) => p?.value === urlQueryParam?.value);
+
+          each(urlQueryParams, (urlQueryParam, index) => {
+            const existingQueryParam = matchedQueryParams[index];
             urlQueryParam.uid = existingQueryParam?.uid || uuid();
+            urlQueryParam.description = existingQueryParam?.description || '';
+            urlQueryParam.annotations = existingQueryParam?.annotations || null;
             urlQueryParam.enabled = true;
             urlQueryParam.type = 'query';
-
-            // once found, remove it - trying our best here to accommodate duplicate query params
-            if (existingQueryParam) {
-              enabledQueryParams = filter(enabledQueryParams, (p) => p?.uid !== existingQueryParam?.uid);
-            }
           });
 
           // filter the newest path param and compare with previous data that already inserted
