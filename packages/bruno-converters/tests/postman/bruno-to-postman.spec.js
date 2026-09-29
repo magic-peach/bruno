@@ -1,4 +1,5 @@
 import { sanitizeUrl, transformUrl, brunoToPostman } from '../../src/postman/bruno-to-postman';
+import postmanToBruno from '../../src/postman/postman-to-bruno';
 
 describe('transformUrl', () => {
   it('should handle basic URL with path variables', () => {
@@ -1155,6 +1156,55 @@ describe('brunoToPostman multipartForm handling', () => {
       disabled: false,
       type: 'file'
     });
+  });
+});
+
+describe('brunoToPostman file body handling', () => {
+  const collectionWithFileBody = (file) => ({
+    items: [
+      {
+        name: 'Upload',
+        type: 'http-request',
+        request: {
+          method: 'POST',
+          url: 'https://example.com/upload',
+          body: { mode: 'file', file }
+        }
+      }
+    ]
+  });
+
+  it('should export the selected file as a file body with src', () => {
+    const result = brunoToPostman(collectionWithFileBody([
+      { filePath: '/path/to/unused.bin', contentType: 'application/octet-stream', selected: false },
+      { filePath: '/path/to/payload.bin', contentType: 'application/octet-stream', selected: true }
+    ]));
+
+    expect(result.item[0].request.body).toEqual({
+      mode: 'file',
+      file: { src: '/path/to/payload.bin' }
+    });
+  });
+
+  it('should export an empty raw body when no file is selected', () => {
+    const result = brunoToPostman(collectionWithFileBody([
+      { filePath: '/path/to/payload.bin', contentType: 'application/octet-stream', selected: false }
+    ]));
+
+    expect(result.item[0].request.body).toEqual({ mode: 'raw', raw: '' });
+  });
+
+  it('should keep the file path through a Postman export and re-import', async () => {
+    const exported = brunoToPostman(collectionWithFileBody([
+      { filePath: './payload.bin', contentType: 'application/octet-stream', selected: true }
+    ]));
+
+    const { collection } = await postmanToBruno(exported);
+    const body = collection.items[0].request.body;
+
+    expect(body.mode).toBe('file');
+    expect(body.file).toHaveLength(1);
+    expect(body.file[0]).toMatchObject({ filePath: './payload.bin', selected: true });
   });
 });
 

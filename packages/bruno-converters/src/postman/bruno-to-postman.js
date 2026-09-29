@@ -378,6 +378,21 @@ export const brunoToPostman = (collection, { preserveScripts = false } = {}) => 
           mode: 'graphql',
           graphql: body.graphql || {}
         };
+      case 'file': {
+        const selectedFile = (body.file || []).find((fileItem) => fileItem.selected && fileItem.filePath);
+        if (!selectedFile) {
+          return {
+            mode: 'raw',
+            raw: ''
+          };
+        }
+        return {
+          mode: 'file',
+          file: {
+            src: selectedFile.filePath
+          }
+        };
+      }
       default:
         return {
           mode: 'raw',
