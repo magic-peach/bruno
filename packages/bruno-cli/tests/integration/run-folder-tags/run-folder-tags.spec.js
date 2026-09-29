@@ -144,6 +144,22 @@ describe.each(FORMATS)('CLI run — folder tags cascade to requests ($format col
     ].sort());
   }, RUN_TIMEOUT);
 
+  it('accepts the tags option more than once', async () => {
+    await run(['--tags', 'v2', '--tags', 'wip']);
+
+    expect(ranRequests()).toEqual([
+      'api/v2/nested',
+      'api/v2/reports-tags',
+      'legacy/inherits-wip'
+    ].sort());
+  }, RUN_TIMEOUT);
+
+  it('ignores spaces around the tags in a comma separated list', async () => {
+    await run(['--exclude-tags', 'api, wip']);
+
+    expect(ranRequests()).toEqual(['untagged', 'own-tagged'].sort());
+  }, RUN_TIMEOUT);
+
   it('excludes a whole subtree by its folder tag', async () => {
     await run(['--exclude-tags', 'api']);
 

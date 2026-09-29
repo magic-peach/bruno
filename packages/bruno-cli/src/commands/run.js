@@ -14,6 +14,7 @@ const constants = require('../constants');
 const Table = require('cli-table3');
 const { findItemInCollection, createCollectionJsonFromPathname, getCallStack, getEffectiveTagsByPathname, FORMAT_CONFIG } = require('../utils/collection');
 const { hasExecutableTestInScript } = require('../utils/request');
+const { parseListOption } = require('../utils/common');
 const { createSkippedFileResults } = require('../utils/run');
 const { sanitizeResultsForReporter } = require('../utils/sanitize-results');
 const { getSystemProxy } = require('@usebruno/requests');
@@ -631,8 +632,8 @@ const handler = async function (argv) {
     }
     options['ignoreTruststore'] = ignoreTruststore;
 
-    includeTags = includeTags ? includeTags.split(',') : [];
-    excludeTags = excludeTags ? excludeTags.split(',') : [];
+    includeTags = parseListOption(includeTags);
+    excludeTags = parseListOption(excludeTags);
 
     if (['json', 'junit', 'html'].indexOf(format) === -1) {
       console.error(chalk.red(`Format must be one of "json", "junit or "html"`));
